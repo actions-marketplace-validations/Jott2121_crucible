@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -15,11 +15,11 @@ dependencies = [
     "agent-cost-attribution @ git+https://github.com/Jott2121/agent-cost-attribution@b502b093e5344beea06dcafcf32239e90302ddad",
     # Exact pin: scope.py's SRC_SHIM reads MUTANT_UNDER_TEST at call time -- a
     # mutmut 3.6.0 internal contract, not a public API (accepted residual, now pinned).
-    "mutmut==3.6.0",
+    "mutmut==3.7.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov>=5"]
+dev = ["pytest>=9.1.1", "pytest-cov>=7.1.0"]
 
 [project.scripts]
 crucible = "crucible.cli:main"
