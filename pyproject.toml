@@ -1,25 +1,54 @@
 [build-system]
-requires = ["setuptools>=68"]
+# >=77 for PEP 639 (SPDX `license` string + `license-files`).
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "crucible"
-version = "0.1.0"
+# Distribution name is `crucible-harden` because `crucible` was already taken on
+# PyPI by an unrelated project. The import package and the console script are
+# both still `crucible` -- `pip install crucible-harden`, then run `crucible`.
+name = "crucible-harden"
+version = "0.1.1"
 description = "Adversarial test-hardening loop for AI-built code: Tester vs Critic closing mutation feedback, mechanical verdicts, metered spend, receipts."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Jeff Otterson" }]
+keywords = ["mutation-testing", "testing", "ai", "llm", "agents", "test-quality", "pytest"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = [
-    "oracle-gate @ git+https://github.com/Jott2121/oracle-gate@ce9b0b93ba59afa4598a85738db9abd7f975e8bc#subdirectory=tool",
-    "agent-cost-attribution @ git+https://github.com/Jott2121/agent-cost-attribution@b502b093e5344beea06dcafcf32239e90302ddad",
+    # Upper-bounded on purpose: crucible reaches past these packages' public
+    # surface -- engine.py uses oracle_gate.runner/survivors internals and
+    # meter.py imports the private agent_cost_attribution.pricing._tier. A minor
+    # release of either could move something crucible depends on, so a new minor
+    # has to be tested here before it is allowed in.
+    "oracle-gate>=0.1.1,<0.2",
+    "agent-cost-attribution>=0.1.1,<0.2",
     # Exact pin: scope.py's SRC_SHIM reads MUTANT_UNDER_TEST at call time -- a
     # mutmut 3.6.0 internal contract, not a public API (accepted residual, now pinned).
     "mutmut==3.6.0",
 ]
 
+[project.urls]
+Homepage = "https://jott2121.github.io/crucible/"
+Repository = "https://github.com/Jott2121/crucible"
+Issues = "https://github.com/Jott2121/crucible/issues"
+Results = "https://github.com/Jott2121/crucible/blob/main/experiments/RESULTS-B.md"
+
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov>=5"]
+# trove-classifiers: the canonical classifier list, so tests/test_packaging.py can
+# reject an invented classifier here rather than at the irreversible upload.
+dev = ["pytest>=8", "pytest-cov>=5", "trove-classifiers", "ruff"]
 
 [project.scripts]
 crucible = "crucible.cli:main"
@@ -39,6 +68,36 @@ source = ["src/crucible"]
 # don't red the build, but a real regression does.
 fail_under = 90
 show_missing = true
+
+[tool.ruff]
+target-version = "py311"
+# Governs `ruff format` if it is ever run; E501 below is NOT enforced, so this is
+# a target for new code, not a rule the existing tree has to satisfy.
+line-length = 100
+
+[tool.ruff.lint]
+# Deliberately narrow. Lint here is a correctness gate for agent-written code --
+# pyflakes catches undefined names, dead imports, and shadowed definitions, which
+# is the failure mode of a model editing a file it only half-read. Style is not
+# the gate; the test suite and mutation score are.
+select = ["E", "F"]
+ignore = [
+    # 27 existing lines are long explanatory comments carrying the WHY behind a
+    # pin, a workaround, or a security boundary. Reflowing prose to satisfy a
+    # column count loses more than it buys.
+    "E501",
+    # `import shutil, subprocess` inside a test helper, and one late import in
+    # tests/test_providers_ext.py. Both are local-by-intent; hoisting them would
+    # churn tests to no effect.
+    "E401",
+    "E402",
+    # `l` as the loop variable over `.splitlines()`. Reads fine; renaming it
+    # would touch a mutation-tested module for zero behavior change.
+    "E741",
+]
+# NOT selected: "I" (import sorting). It is 18 files of pure reordering on the
+# current tree -- worth doing, but as its own commit, not smuggled into a config
+# change.
 
 [tool.mutmut]
 source_paths = [

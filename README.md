@@ -4,17 +4,17 @@
 
 [![ci](https://github.com/Jott2121/crucible/actions/workflows/ci.yml/badge.svg)](https://github.com/Jott2121/crucible/actions/workflows/ci.yml)
 [![codeql](https://github.com/Jott2121/crucible/actions/workflows/codeql.yml/badge.svg)](https://github.com/Jott2121/crucible/actions/workflows/codeql.yml)
-[![mutation score](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Jott2121/crucible/badges/mutation.json&labelColor=0F172A)](docs/MUTATION.md)
-[![tests](https://img.shields.io/badge/tests-439-38BDF8?labelColor=0F172A)](tests/)
-[![loop effect](https://img.shields.io/badge/loop_causal_effect-0.783_%5B0.59%2C0.94%5D-818CF8?labelColor=0F172A)](experiments/RESULTS-B.md)
-[![cross-config pilot](https://img.shields.io/badge/cross--config_pilot-%2B0.178_%5B0.04%2C0.35%5D-FBBF24?labelColor=0F172A)](experiments/RESULTS-B.md)
+[![mutation score](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Jott2121/crucible/badges/mutation.json&labelColor=0F172A)](https://github.com/Jott2121/crucible/blob/main/docs/MUTATION.md)
+[![tests](https://img.shields.io/badge/tests-443-38BDF8?labelColor=0F172A)](https://github.com/Jott2121/crucible/tree/main/tests/)
+[![loop effect](https://img.shields.io/badge/loop_causal_effect-0.783_%5B0.59%2C0.94%5D-818CF8?labelColor=0F172A)](https://github.com/Jott2121/crucible/blob/main/experiments/RESULTS-B.md)
+[![cross-config pilot](https://img.shields.io/badge/cross--config_pilot-%2B0.178_%5B0.04%2C0.35%5D-FBBF24?labelColor=0F172A)](https://github.com/Jott2121/crucible/blob/main/experiments/RESULTS-B.md)
 [![metered spend](https://img.shields.io/badge/metered_spend-%240-34D399?labelColor=0F172A)](#receipts-are-the-product)
-[![license](https://img.shields.io/badge/license-MIT-64748B?labelColor=0F172A)](LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-64748B?labelColor=0F172A)](https://github.com/Jott2121/crucible/blob/main/LICENSE)
 
-![crucible demo — a green suite at 97% coverage, 25 of 71 injected defects surviving, and the harden loop killing 24 of them while refusing to fake the 25th](docs/assets/demo.gif)
+![crucible demo — a green suite at 97% coverage, 25 of 71 injected defects surviving, and the harden loop killing 24 of them while refusing to fake the 25th](https://raw.githubusercontent.com/Jott2121/crucible/main/docs/assets/demo.gif)
 
 <sub>Recorded live — every command really ran, and every number in it is read back from that run's
-own receipt. Sped up for viewing; [replay the raw cast at real speed](docs/assets/demo.cast).
+own receipt. Sped up for viewing; [replay the raw cast at real speed](https://github.com/Jott2121/crucible/blob/main/docs/assets/demo.cast).
 Full landing page: **[jott2121.github.io/crucible](https://jott2121.github.io/crucible/)**</sub>
 
 That module has **7 passing tests and 97% line coverage**. Mutation testing injects **71 real
@@ -73,7 +73,7 @@ it survives. **No model ever grades model output.**
 
 Find out what your existing tests actually miss, on your own repo:
 
-    pip install "crucible @ git+https://github.com/Jott2121/crucible@v1"
+    pip install crucible-harden       # the command it installs is `crucible`
 
     cd /path/to/your-repo-clone       # work in a clone: crucible writes scope config
     crucible score . --module yourpkg/yourmodule.py --coverage 97
@@ -89,6 +89,39 @@ overwriting it.
 
 The survivor count is plain mutation testing on your own suite. No AI is involved yet — the number
 that embarrasses a coverage badge is free to compute.
+
+Nothing to install, if you have [uv](https://docs.astral.sh/uv/):
+
+    uvx --from crucible-harden crucible score . --module yourpkg/yourmodule.py
+
+(uvx runs crucible in its own throwaway environment. That is fine when your tests import your
+package from the working tree, as above; if they need it *installed* — a src-layout project, say —
+use the `pip install` path into the environment your tests already run in.)
+
+## Using another coding agent?
+
+There is no MCP server here, on purpose. `crucible score` is a shell command that prints a number
+and names the survivors, so any agent that can run a command can already use it — Cursor, Cline,
+Windsurf, Codex, Copilot, or a plain terminal. Point yours at this:
+
+> Run `uvx --from crucible-harden crucible score . --module <the module you just wrote tests for>`.
+> It injects real defects and reports how many the test suite actually kills. Anything in the
+> `survivors` list is a bug the suite would let through. Write tests that kill those specific
+> mutants, then re-run to confirm the count dropped.
+
+The harden loop is deliberately **not** exposed as a tool call: it runs for minutes, writes files,
+and creates git branches, so a client timeout and retry would re-run the whole thing and re-spend
+for it. Guardrails belong in the operator's ritual, not in an arbitrary caller's hands — which is
+what the Claude Code skill below encodes.
+
+## Claude Code plugin
+
+    /plugin marketplace add Jott2121/crucible
+    /plugin install crucible-harden@crucible
+
+Installs the `harden-tests` skill, which drives the full ritual: preflight, local branch, the free
+scope canary, the loop, and a receipted report. It requires `pip install crucible-harden` as well —
+the plugin is the procedure, the package is the tool.
 
 ## Then harden — the adversarial loop
 
@@ -116,9 +149,11 @@ Every run writes a receipt directory:
     result.json       # verdict + totals
 
 Generated tests are written into the working tree of wherever you run it — so run it on a
-throwaway branch; the bundled `harden-tests` skill (`.claude/skills/harden-tests/`) enforces
-the full ritual: **local branch only, never main, PR strictly opt-in**. If the canary can't
-prove your scope, crucible refuses instead of spending tokens.
+throwaway branch; the bundled `harden-tests` skill (`skills/harden-tests/`, installable as a
+Claude Code plugin) enforces the full ritual: **local branch only, never main, PR strictly
+opt-in**. If the canary can't prove your scope, crucible refuses instead of spending tokens.
+Those generated tests are model-written Python that pytest then executes on your machine —
+crucible discards any that fail on pristine code, but it does not sandbox execution.
 
 ## Results
 
@@ -140,9 +175,9 @@ An earlier analysis had shown an apparently overwhelming cross-lineage effect; t
 traced it to silent output truncation deleting one arm's rounds — an instrument artifact, not a
 model difference — and the same mechanism recurred three times in Experiment 2, this time
 mechanically detected and honestly scored. That autopsy and the fail-closed instrumentation
-built from it are the finding. Full tables: [`experiments/RESULTS.md`](experiments/RESULTS.md)
-(Experiment 1), [`experiments/RESULTS-B.md`](experiments/RESULTS-B.md) (Experiment 2), and the
-paper draft with its complete cross-model review trail in [`paper/`](paper/).
+built from it are the finding. Full tables: [`experiments/RESULTS.md`](https://github.com/Jott2121/crucible/blob/main/experiments/RESULTS.md)
+(Experiment 1), [`experiments/RESULTS-B.md`](https://github.com/Jott2121/crucible/blob/main/experiments/RESULTS-B.md) (Experiment 2), and the
+paper draft with its complete cross-model review trail in [`paper/`](https://github.com/Jott2121/crucible/tree/main/paper/).
 
 ## Why trust this
 
@@ -172,7 +207,7 @@ someone who was not watching it run:
   surviving, round after round, until dry or a cap. On the frozen round-0 experiment (same-lineage
   arm, 4 subjects × 5 replicates) the critic rounds killed a mean **78% of the survivors a single
   generation left standing** (0.783, 95% bootstrap interval [0.592, 0.935]) — measured, not
-  asserted ([full tables](experiments/RESULTS-B.md)).
+  asserted ([full tables](https://github.com/Jott2121/crucible/blob/main/experiments/RESULTS-B.md)).
 - **It is strictly add-only.** Generated tests are only ever added; an `assert_add_only` guard
   trips if a run would edit or delete anything already in your suite. (crucible does write a
   `[tool.mutmut]` scope into the clone's `pyproject.toml` and commit it — that commit is exactly
@@ -210,3 +245,15 @@ handed to a teammate, a CI gate, or a reviewer.
 
 Built on [oracle-gate](https://github.com/Jott2121/oracle-gate) (survivor triage, provenance,
 providers). MIT license.
+
+Companion instrument: [quorum-cal](https://github.com/Jott2121/quorum-cal) — measures how many
+independent votes an LLM judge panel is actually worth. Its truth-by-construction gold sets are
+built from exactly the killed mutants crucible produces (measured: three identical judges are
+~1.3 effective votes; diverse panels shared zero false endorsements of real bugs).
+
+Companion instrument: [sabot](https://github.com/Jott2121/sabot) — the same question one
+level up. crucible asks whether your tests would notice a planted defect; sabot plants a
+fault inside a *running* multi-agent pipeline and asks whether the pipeline's own reviewer
+and guardrail stages notice. Measured across LangGraph, CrewAI and AutoGen/Magentic-One,
+the median own-check detection rate was 16.7%, and the most common outcome was a correct
+answer with nothing flagging the fault.
